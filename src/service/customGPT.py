@@ -3,6 +3,7 @@ from src.service.context import Context
 import tiktoken
 from docx import Document
 import numpy as np
+import copy
 
 class CustomGPT(OpenAI):
 
@@ -75,11 +76,19 @@ class CustomGPT(OpenAI):
                 context_text+=f"Chunk {chunk_idx} from FAISS: "+self.contexts[context].query_similar(super().embeddings.create(input=query,model=self.context_embedding_model).data[0].embedding)+"\n"
                 chunk_idx+=1
             query_content = f"Using this initial context:{self.initial_context}\nAnd the following additional context:{context_text}\n Answer the following:{query}"
-            self.chat_history.append({"role": "user", "content": query_content})
+
+            #append chat history; distinction must be made between the context fed into the model and what we append to our chat history. Don't want to feed every bit of context in every time because we'll hit the token limit
+            print(len(self.chat_history))
+            if len(self.chat_history) > 0:
+                chat_history_for_query : list = copy.deepcopy(self.chat_history) + [{"role":"user","content":query_content}]
+            else:
+                chat_history_for_query = [{"role":"user","content":query_content}]
+            self.chat_history.append({"role": "user", "content": query})
+            response = super().chat.completions.create(model=self.model, messages=chat_history_for_query)
         else:
             self.chat_history.append({"role":"user","content":self.initial_context+"\n"+query})
+            response = super().chat.completions.create(model=self.model, messages=self.chat_history)
 
-        response = super().chat.completions.create(model=self.model, messages=self.chat_history)
         self.chat_history.append({"role":response.choices[0].message.role, "content":response.choices[0].message.content})
 
         return response.choices[0].message.content
