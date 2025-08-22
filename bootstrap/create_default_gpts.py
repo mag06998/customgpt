@@ -47,9 +47,15 @@ for gpt in create_gpts:
         if db_connection.read_context_by_name(os.path.basename(doc)) is not None:
             created_gpt.add_context(db_connection.read_context_by_name(os.path.basename(doc)))
         else:
-            created_gpt.add_context_from_docx(context_name=os.path.splitext(os.path.basename(doc))[0],
-                                              doc_name=str(Path(__file__).parent.parent.resolve() / "documents" / f"{doc}"),
-                                              chunk_size=1000)
+            file_path=Path(__file__).parent.parent.resolve() / "documents" / f"{doc}"
+            if file_path.exists() and file_path.suffix.lower() == ".docx":
+                created_gpt.add_context_from_docx(context_name=os.path.splitext(os.path.basename(doc))[0],
+                                                  doc_name=str(file_path),
+                                                  chunk_size=1000)
+            elif file_path.exists() and file_path.suffix.lower() == ".pdf":
+                pass
+            else:
+                print(f"{file_path} is not a supported document type or does not exist.")
     try:
         db_connection.write_custom_gpt(created_gpt)
     except Exception as e:

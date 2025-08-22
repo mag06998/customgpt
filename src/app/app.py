@@ -2,6 +2,9 @@
 
 
 """
+import sys
+print(sys.executable)
+
 
 from flask import Flask, send_from_directory
 from pathlib import Path

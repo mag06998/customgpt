@@ -2,8 +2,10 @@ from openai import OpenAI
 from src.service.context import Context
 import tiktoken
 from docx import Document
+from pypdf import PdfReader
 import numpy as np
 import copy
+from pathlib import Path
 
 class CustomGPT(OpenAI):
 
@@ -35,6 +37,38 @@ class CustomGPT(OpenAI):
             chunks.append(" ".join(chunk))
 
         #embed chunks using specified embedding model
+        embeddings=[]
+        for chunk in chunks:
+            embedding=np.array(super().embeddings.create(input=chunk,model=self.context_embedding_model).data[0].embedding,dtype="float32")
+            embeddings.append([chunk,embedding])
+
+        #create context object with embedding
+        context = Context(context_name,doc_name,embeddings,self.context_embedding_model)
+        self.contexts[context_name] = context
+
+        return context
+
+    def add_context_from_pdf(self, context_name : str, doc_name : str, chunk_size : int = 500) -> Context:
+
+        #break document into chunks of text
+        pdf_path=Path(__file__).parent.parent.parent / "documents" / doc_name
+        pdf_reader = PdfReader(pdf_path)
+        text = " ".join(page.extract_text() for page in pdf_reader.pages)
+        words = text.split()
+
+        chunks=[]
+        chunk=[]
+        embedding=tiktoken.encoding_for_model(self.model)
+        for word in words:
+            chunk.append(word)
+            if len(embedding.encode(" ".join(chunk))) > chunk_size:
+                chunks.append(" ".join(chunk[:-1]))
+                chunk = [word]
+        if chunk:
+            chunks.append(" ".join(chunk))
+
+        #embed chunks using specified embedding model
+
         embeddings=[]
         for chunk in chunks:
             embedding=np.array(super().embeddings.create(input=chunk,model=self.context_embedding_model).data[0].embedding,dtype="float32")
